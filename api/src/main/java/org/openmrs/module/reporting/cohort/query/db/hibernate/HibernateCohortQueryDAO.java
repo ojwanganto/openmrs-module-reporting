@@ -125,7 +125,7 @@ public class HibernateCohortQueryDAO implements CohortQueryDAO {
 			maxBirthFromAge = cal.getTime();
 		}
 		
-		String c = "p.birthdate <= :maxBirthFromAge";
+		String c = "date(p.birthdate) <= date(:maxBirthFromAge)";
 		paramsToSet.put("maxBirthFromAge", maxBirthFromAge);
 		
 		Date minBirthFromAge = null;
@@ -134,7 +134,7 @@ public class HibernateCohortQueryDAO implements CohortQueryDAO {
 			cal.setTime(effectiveDate);
 			cal.add(maxAgeUnit.getCalendarField(), -(maxAgeUnit.getFieldQuantity()*maxAge + 1));
 			minBirthFromAge = cal.getTime();
-			c = "(" + c + " and p.birthdate >= :minBirthFromAge)";
+			c = "(" + c + " and date(p.birthdate) > date(:minBirthFromAge))";
 			paramsToSet.put("minBirthFromAge", minBirthFromAge);
 		}
 			
@@ -144,8 +144,10 @@ public class HibernateCohortQueryDAO implements CohortQueryDAO {
 		
 		sql += c;
 		
-		log.debug("Executing: " + sql + " with params: " + paramsToSet);
-		
+		log.debug("Executing: " + sql + " with params: " + paramsToSet + " ages:" + minAge + " - " + maxAge);
+		log.info("Executing: " + sql + " with params: " + paramsToSet + " ages:" + minAge + " - " + maxAge);
+		System.out.println("Executing: " + sql + " with params: " + paramsToSet + " ages:" + minAge + " - " + maxAge);
+
 		Query query = sessionFactory.getCurrentSession().createSQLQuery(sql);
 		for (Map.Entry<String, Date> entry : paramsToSet.entrySet()) {
 			query.setDate(entry.getKey(), entry.getValue());
