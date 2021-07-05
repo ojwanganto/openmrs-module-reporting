@@ -9,7 +9,6 @@
  */
 package org.openmrs.module.reporting.data.person.evaluator;
 
-import org.openmrs.Person;
 import org.openmrs.annotation.Handler;
 import org.openmrs.module.reporting.common.Birthdate;
 import org.openmrs.module.reporting.data.person.EvaluatedPersonData;
@@ -17,10 +16,11 @@ import org.openmrs.module.reporting.data.person.definition.BirthdateDataDefiniti
 import org.openmrs.module.reporting.data.person.definition.PersonDataDefinition;
 import org.openmrs.module.reporting.evaluation.EvaluationContext;
 import org.openmrs.module.reporting.evaluation.EvaluationException;
-import org.openmrs.module.reporting.evaluation.querybuilder.HqlQueryBuilder;
+import org.openmrs.module.reporting.evaluation.querybuilder.SqlQueryBuilder;
 import org.openmrs.module.reporting.evaluation.service.EvaluationService;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -30,6 +30,7 @@ import java.util.List;
 @Handler(supports=BirthdateDataDefinition.class, order=50)
 public class BirthdateDataEvaluator implements PersonDataEvaluator {
 
+	static int PARAMETER_LIMIT = 50;
 	@Autowired
 	EvaluationService evaluationService;
 
@@ -40,12 +41,22 @@ public class BirthdateDataEvaluator implements PersonDataEvaluator {
 	public EvaluatedPersonData evaluate(PersonDataDefinition definition, EvaluationContext context) throws EvaluationException {
 		EvaluatedPersonData c = new EvaluatedPersonData(definition, context);
 
-		HqlQueryBuilder q = new HqlQueryBuilder();
-		q.select("p.personId", "p.birthdate", "p.birthdateEstimated");
-		q.from(Person.class, "p");
-		q.wherePersonIn("p.personId", context);
+		/**
+		 * Switched from hql to sql since hql cannot handle a the list param
+		 * TODO: investigate the actual cause
+		 */
+		String sql = "select p.person_id, p.birthdate, p.birthdate_estimated from person p where p.voided=0 and p.person_id in (:personIds)";
+		SqlQueryBuilder qb = new SqlQueryBuilder();
+		qb.append(sql);
+		qb.addParameter("personIds", context.getBaseCohort());
 
-		List<Object[]> results = evaluationService.evaluateToList(q, context);
+		List<Object[]> results = evaluationService.evaluateToList(qb, context);
+
+		List<Integer> ret = new ArrayList<Integer>();
+		for (Integer pId : context.getBaseCohort().getMemberIds()) {
+			ret.add(pId);
+		}
+
 		for (Object[] row : results) {
 			Integer pId = (Integer)row[0];
 			Date birthdate = (Date)row[1];
@@ -58,6 +69,8 @@ public class BirthdateDataEvaluator implements PersonDataEvaluator {
 			}
 		}
 
+
 		return c;
 	}
+
 }
